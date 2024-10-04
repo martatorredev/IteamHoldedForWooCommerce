@@ -39,3 +39,43 @@ function plugin_activar_rewrite() {
     flush_rewrite_rules();
 }
 register_activation_hook(__FILE__, 'plugin_activar_rewrite');
+
+// Función para obtener facturas desde Holded API
+function obtener_facturas_desde_holded($customer_email) {
+    $api_key = 'a18675fc28833186dcebddbb9393ebac'; // Sustituye con tu clave real de Holded
+    $endpoint = 'https://api.holded.com/api/invoicing/v1/invoices?email=' . urlencode($customer_email);
+
+    $response = wp_remote_get($endpoint, array(
+        'headers' => array(
+            'Authorization' => 'Bearer ' . $api_key,
+        )
+    ));
+
+    if (is_wp_error($response)) {
+        return []; // Retornar un array vacío en caso de error
+    }
+
+    $body = wp_remote_retrieve_body($response);
+    $facturas = json_decode($body, true);
+
+    return $facturas;
+}
+
+// Modificar la función para mostrar las facturas en la pestaña
+function mostrar_pestaña_facturas() {
+    $current_user = wp_get_current_user();
+    $facturas = obtener_facturas_desde_holded($current_user->user_email);
+
+    echo '<h3>' . __('Tus Facturas', 'woocommerce-holded') . '</h3>';
+
+    if (!empty($facturas)) {
+        echo '<ul>';
+        foreach ($facturas as $factura) {
+            $factura_pdf = $factura['pdf']; // Asumiendo que el endpoint de Holded te da la URL del PDF
+            echo '<li><a href="' . esc_url($factura_pdf) . '" target="_blank">Descargar Factura #' . esc_html($factura['id']) . '</a></li>';
+        }
+        echo '</ul>';
+    } else {
+        echo '<p>No tienes facturas disponibles.</p>';
+    }
+}
